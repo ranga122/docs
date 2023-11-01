@@ -7,12 +7,6 @@ docs_area: develop
 
 CockroachDB supports an admission control system to maintain cluster performance and availability when some nodes experience high load. When admission control is enabled, CockroachDB sorts request and response operations into work queues by priority, giving preference to higher priority operations. Internal operations critical to node health, like [node liveness heartbeats]({% link {{ page.version.version }}/cluster-setup-troubleshooting.md %}#node-liveness-issues), are high priority. The admission control system also prioritizes transactions that hold [locks]({% link {{ page.version.version }}/crdb-internal.md %}#cluster_locks), to reduce [contention]({% link {{ page.version.version }}/performance-best-practices-overview.md %}#transaction-contention) and release locks earlier.
 
-[XXX](): check in with #cc-serverless team on the conflicting Serverless statements in here.
-
-{{site.data.alerts.callout_info}}
-Admission control is not available for CockroachDB {{ site.data.products.serverless }} clusters.
-{{site.data.alerts.end}}
-
 ## How admission control works
 
 At a high level, the admission control system works by queueing requests to use the following system resources:
@@ -35,8 +29,6 @@ For more details about how the admission control system works, see:
 
 A well-provisioned CockroachDB cluster may still encounter performance bottlenecks at the node level, as stateful nodes can develop [hot spots]({% link {{ page.version.version }}/performance-best-practices-overview.md %}#hot-spots) that last until the cluster rebalances itself. When hot spots occur, they should not cause failures or degraded performance for important work.
 
-[XXX](): check in with Serverless team about the below statement, which seems directly contradicted by the other one about Serverless above
-
 This is particularly important for CockroachDB {{ site.data.products.serverless }}, where one user tenant cluster experiencing high load should not degrade the performance or availability of a different, isolated tenant cluster running on the same host.
 
 Admission control can help if your cluster has degraded performance due to the following types of node overload scenarios:
@@ -50,22 +42,19 @@ Admission control can help if your cluster has degraded performance due to the f
 
 Almost all database operations that use CPU or perform Storage IO are controlled by the admission control system. From a user's perspective, specific operations that are affected by admission control include:
 
-- [XXX](): ADD LINKS BACK AND FORTH TO/FROM THINGS
-- [XXX]() ASK SUMEER ABOUT WHETHER THIS LIST OF THINGS MAKES SENSE
 - [General SQL queries]({% link {{ page.version.version }}/selection-queries.md %}) have their CPU usage subject to admission control, as well as storage IO for writes to [leaseholder replicas]({% link {{ page.version.version }}/architecture/replication-layer.md %}#leases).
 - [Bulk data imports]({% link {{ page.version.version }}/import-into.md %}).
 - [Backups]({% link {{ page.version.version }}/backup-and-restore-overview.md %}).
 - [Schema changes]({% link {{ page.version.version }}/online-schema-changes.md %}), including index and column backfills (on both the [leaseholder replica]({% link {{ page.version.version }}/architecture/replication-layer.md %}#leases) and [follower replicas]({% link {{ page.version.version }}/architecture/replication-layer.md %}#raft)).
-- [Deletes]({% link {{ page.version.version }}/delete-data.md %}) (including those initiated by [row-level TTL jobs]({% link {{ page.version.version }}/row-level-ttl.md %}))
-- [Follower replication work]({% link {{ page.version.version }}/architecture/replication-layer.md %}#raft) (including the sending of [snapshots]({% link {{ page.version.version }}/architecture/replication-layer.md %}#snapshots)).
+- [Deletes]({% link {{ page.version.version }}/delete-data.md %}) (including deletes initiated by [row-level TTL jobs]({% link {{ page.version.version }}/row-level-ttl.md %}); the [selection queries]({% link {{ page.version.version }}/selection-queries.md %}) performed by TTL jobs are also subject to CPU admission control).
+- [Follower replication work]({% link {{ page.version.version }}/architecture/replication-layer.md %}#raft).
 - [Raft log entries being written to disk]({% link {{ page.version.version }}/architecture/replication-layer.md %}#raft).
 - [Changefeeds]({% link {{ page.version.version }}/create-and-configure-changefeeds.md %}).
 - [Intent resolution]({% link {{ page.version.version }}/architecture/transaction-layer.md %}#write-intents).
 
 The following operations are not subject to admission control:
 
-- [XXX]() ASK SUMEER ABOUT WHAT THINGS CAN/SHOULD GO HERE
-- SQL writes are not subject to admission control on [follower replicas]({% link {{ page.version.version }}/architecture/replication-layer.md %}#raft) by default, unless those writes occur in transactions that are subject to a Quality of Service (QoS) level as described in [Set quality of service level for a session](#set-quality-of-service-level-for-a-session).
+- SQL writes are not subject to admission control on [follower replicas]({% link {{ page.version.version }}/architecture/replication-layer.md %}#raft) by default, unless those writes occur in transactions that are subject to a Quality of Service (QoS) level as described in [Set quality of service level for a session](#set-quality-of-service-level-for-a-session). In order for writes on follower replicas to be subject to admission control, the setting `default_transaction_quality_of_service=background` must be used.
 
 {{site.data.alerts.callout_info}}
 Admission control is beneficial when overall cluster health is good but some nodes are experiencing overload. If you see these overload scenarios on many nodes in the cluster, that typically means the cluster needs more resources.
@@ -135,3 +124,4 @@ The [DB Console Overload dashboard]({% link {{ page.version.version }}/ui-overlo
 - The [Overload Dashboard]({% link {{ page.version.version }}/ui-overload-dashboard.md %}) in the [DB Console]({% link {{ page.version.version }}/ui-overview.md %}).
 - The [technical note for admission control](https://github.com/cockroachdb/cockroach/blob/master/docs/tech-notes/admission_control.md) for details on the design of the admission control system.
 - The blog post [Here's how CockroachDB keeps your database from collapsing under load](https://www.cockroachlabs.com/blog/admission-control-in-cockroachdb/).
+- The blog post [Rubbing Control Theory on the Go scheduler](https://www.cockroachlabs.com/blog/rubbing-control-theory/).
